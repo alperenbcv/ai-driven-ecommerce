@@ -1,0 +1,40 @@
+server:
+  port: 8092
+
+spring:
+  application:
+    name: assistant-service
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          model: gpt-4o
+          temperature: 0.3
+          max-tokens: 1024
+
+assistant:
+  conversation:
+    max-history: 20
+    ttl-minutes: 60
+  system-prompt: |
+    Sen bir e-ticaret asistanısın. Kullanıcılara ürün bulma, sepet yönetimi ve 
+    sipariş takibi konularında yardım edersin. Türkçe yanıt verirsin. 
+    Ürün aramak için searchProducts, sepete eklemek için addToCart, 
+    sipariş durumu için getOrderStatus fonksiyonlarını kullanabilirsin.
+
+services:
+  order:
+    url: ${ORDER_SERVICE_URL:http://order-service:8084}
+  recommendation:
+    url: ${RECOMMENDATION_SERVICE_URL:http://recommendation-service:8090}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html

@@ -1,0 +1,30 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: order-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/order_db
+    username: ${POSTGRES_USER:ecommerce}
+    password: ${POSTGRES_PASSWORD:ecommerce123}
+    driver-class-name: org.postgresql.Driver
+
+services:
+  product-service:
+    url: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+
+rabbitmq:
+  exchange: ecommerce.saga
+  queues:
+    order-created: order.created
+    stock-reserved: stock.reserved
+    payment-completed: payment.completed
+    order-confirmed: order.confirmed
+    order-failed: order.failed
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html

@@ -1,0 +1,41 @@
+server:
+  port: 8091
+  tomcat:
+    uri-encoding: UTF-8
+
+spring:
+  application:
+    name: search-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/search_db
+    username: ${POSTGRES_USER:ecommerce}
+    password: ${POSTGRES_PASSWORD:ecommerce123}
+    driver-class-name: org.postgresql.Driver
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: 5672
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASS:guest}
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      embedding:
+        options:
+          model: text-embedding-3-small
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1536
+        schema-validation: false
+
+search:
+  hybrid:
+    vector-weight: 0.7
+    keyword-weight: 0.3
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html

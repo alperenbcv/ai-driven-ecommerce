@@ -1,0 +1,314 @@
+server:
+  port: 8763
+
+spring:
+  application:
+    name: api-gateway
+  config:
+    import: optional:configserver:http://localhost:8888
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        - name: RequestRateLimiter
+          args:
+            key-resolver: "#{@principalOrIpKeyResolver}"
+            redis-rate-limiter.replenishRate: ${RATE_LIMIT_REPLENISH_RATE:20}
+            redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST_CAPACITY:40}
+            redis-rate-limiter.requestedTokens: 1
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+      routes:
+        # ─── Swagger / OpenAPI proxyleme (JWT yok) ─────────────────────────────────
+        # http://localhost:8763/api/dev/docs/<eureka-adı>/swagger-ui.html
+        - id: openapi-docs-user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/dev/docs/user-service/**
+          filters:
+            - name: StripPrefix
+              args:
+                parts: 4
+            - name: CircuitBreaker
+              args:
+                name: user-service
+                fallbackUri: forward:/fallback/user
+        - id: openapi-docs-product-service
+          uri: lb://product-service
+          predicates:
+            - Path=/api/dev/docs/product-service/**
+          filters:
+            - name: StripPrefix
+              args:
+                parts: 4
+            - name: CircuitBreaker
+              args:
+                name: product-service
+                fallbackUri: forward:/fallback/product
+        - id: openapi-docs-cart-service
+          uri: lb://cart-service
+          predicates:
+            - Path=/api/dev/docs/cart-service/**
+          filters:
+            - name: StripPrefix
+              args:
+                parts: 4
+        - id: openapi-docs-order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/dev/docs/order-service/**
+          filters:
+            - name: StripPrefix
+              args:
+                parts: 4
+        - id: openapi-docs-stock-service
+          uri: lb://stock-service
+          predicates:
+            - Path=/api/dev/docs/stock-service/**
+          filters:
+            - name: StripPrefix
+              args:
+                parts: 4
+        - id: openapi-docs-payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/dev/docs/payment-service/**
+          filters:
+            - name: StripPrefix
+              args:
+                parts: 4
+        - id: openapi-docs-cargo-service
+          uri: lb://cargo-service
+          predicates:
+            - Path=/api/dev/docs/cargo-service/**
+          filters:
+            - name: StripPrefix
+              args:
+                parts: 4
+        - id: openapi-docs-search-service
+          uri: lb://search-service
+          predicates:
+            - Path=/api/dev/docs/search-service/**
+          filters:
+            - name: StripPrefix
+              args:
+                parts: 4
+        - id: openapi-docs-recommendation-service
+          uri: lb://recommendation-service
+          predicates:
+            - Path=/api/dev/docs/recommendation-service/**
+          filters:
+            - name: StripPrefix
+              args:
+                parts: 4
+        - id: openapi-docs-assistant-service
+          uri: lb://assistant-service
+          predicates:
+            - Path=/api/dev/docs/assistant-service/**
+          filters:
+            - name: StripPrefix
+              args:
+                parts: 4
+
+        # Auth login — brute-force denemelerine karşı daha sıkı IP bazlı limit
+        - id: user-service-login-rate-limited
+          uri: lb://user-service
+          predicates:
+            - Path=/api/auth/login
+            - Method=POST
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@ipKeyResolver}"
+                redis-rate-limiter.replenishRate: ${LOGIN_RATE_LIMIT_REPLENISH_RATE:2}
+                redis-rate-limiter.burstCapacity: ${LOGIN_RATE_LIMIT_BURST_CAPACITY:5}
+                redis-rate-limiter.requestedTokens: 1
+            - name: CircuitBreaker
+              args:
+                name: user-service
+                fallbackUri: forward:/fallback/user
+
+        # User Service — public auth endpoints (login, register)
+        - id: user-service-public
+          uri: lb://user-service
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: user-service
+                fallbackUri: forward:/fallback/user
+
+        # User Service — herkese açık public profil (satıcı adı için)
+        - id: user-service-public-profile
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/*/public
+            - Method=GET
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: user-service
+                fallbackUri: forward:/fallback/user
+
+        # User Service — protected endpoints (X-User-Id header eklenir)
+        - id: user-service-private
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - JwtAuthFilter
+            - name: CircuitBreaker
+              args:
+                name: user-service
+                fallbackUri: forward:/fallback/user
+
+        # Product Service — public read (ürün listeleme, detay, kategori, marka)
+        - id: product-service-public
+          uri: lb://product-service
+          predicates:
+            - Path=/api/products/**, /api/categories/**, /api/brands/**
+            - Method=GET
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: product-service
+                fallbackUri: forward:/fallback/product
+
+        # Product Service — protected write (admin ürün ekle/güncelle, seller listing/images)
+        - id: product-service-private
+          uri: lb://product-service
+          predicates:
+            - Path=/api/products/**, /api/categories/**, /api/brands/**
+          filters:
+            - JwtAuthFilter
+            - name: CircuitBreaker
+              args:
+                name: product-service
+                fallbackUri: forward:/fallback/product
+
+        # Product Proposals — Seller/Admin (JWT gerekli)
+        - id: proposals-service
+          uri: lb://product-service
+          predicates:
+            - Path=/api/proposals/**
+          filters:
+            - JwtAuthFilter
+
+        # Product Listings — Seller kendi listeleri (JWT gerekli)
+        - id: listings-service
+          uri: lb://product-service
+          predicates:
+            - Path=/api/listings/**
+          filters:
+            - JwtAuthFilter
+
+        # Shopping Cart Service
+        - id: shopping-cart-service
+          uri: lb://cart-service
+          predicates:
+            - Path=/api/cart/**
+          filters:
+            - JwtAuthFilter
+
+        # Order Service
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - JwtAuthFilter
+
+        # Stock Service — public read GET only (ürün stok bilgisi herkes görebilir)
+        - id: stock-service-public
+          uri: lb://stock-service
+          predicates:
+            - Path=/api/stocks/product/**
+            - Method=GET
+
+        # Stock Service — protected write (admin/seller)
+        - id: stock-service-private
+          uri: lb://stock-service
+          predicates:
+            - Path=/api/stocks/**
+          filters:
+            - JwtAuthFilter
+
+        # Payment Service — Iyzico callback (public, JWT yok - Iyzico dışarıdan çağırır)
+        - id: payment-service-callback
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/callback
+
+        # Payment Service — diğer endpoint'ler (kullanıcı & admin)
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - JwtAuthFilter
+
+        # Cargo Service (public tracking endpoint)
+        - id: cargo-service-public
+          uri: lb://cargo-service
+          predicates:
+            - Path=/api/tracking/**
+
+        - id: cargo-service-private
+          uri: lb://cargo-service
+          predicates:
+            - Path=/api/cargo/**
+          filters:
+            - JwtAuthFilter
+
+        # Search Service (public)
+        - id: search-service
+          uri: lb://search-service
+          predicates:
+            - Path=/api/search/**
+
+        # Recommendation Service
+        - id: recommendation-service
+          uri: lb://recommendation-service
+          predicates:
+            - Path=/api/recommendations/**
+          filters:
+            - JwtAuthFilter
+
+        # AI Assistant Service
+        - id: assistant-service
+          uri: lb://assistant-service
+          predicates:
+            - Path=/api/assistant/**
+          filters:
+            - JwtAuthFilter
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_USER:eureka}:${EUREKA_PASSWORD:eureka123}@localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+jwt:
+  secret: ${JWT_SECRET:your-super-secret-jwt-key-minimum-32-characters}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    com.ecommerce.gateway: DEBUG

@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: search-service
+  config:
+    import: optional:configserver:http://localhost:8888
+  datasource:
+    url: jdbc:postgresql://localhost:5432/product_db
+    username: ${DB_USERNAME:ecommerce}
+    password: ${DB_PASSWORD:ecommerce}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: 5672
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASS:guest}
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:dummy-key-for-dev}
+      embedding:
+        options:
+          model: text-embedding-3-small
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1536
+        # Spring AI otomatik "vector_store" tablosu oluşturur
+        initialize-schema: true
+
+server:
+  port: 8091
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs

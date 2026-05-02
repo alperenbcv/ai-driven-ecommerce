@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="tr">
+<head><meta charset="UTF-8"/><title>Siparişiniz Teslim Edildi</title></head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#8b5cf6,#6366f1);padding:40px 48px;text-align:center;">
+            <h1 style="color:#ffffff;margin:0;font-size:28px;font-weight:700;">Teslim Edildi!</h1>
+            <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;">n12</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:48px;">
+            <h2 style="color:#111827;font-size:22px;margin:0 0 16px;">Merhaba, <span th:text="${firstName}">Müşteri</span>!</h2>
+            <p style="color:#6b7280;font-size:16px;line-height:1.6;margin:0 0 24px;">
+              Siparişiniz teslim edildi. Umarız beğenirsiniz! 
+            </p>
+            <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:20px 24px;margin:0 0 24px;">
+              <p style="color:#7c3aed;font-size:14px;margin:0;">
+                 Sipariş No: <strong th:text="${orderNumber}">#</strong>
+              </p>
+            </div>
+            <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 16px;">
+              Ürünlerinizi nasıl buldunuz? Değerlendirmeniz hem bize hem diğer müşterilere büyük katkı sağlar.
+            </p>
+            <p style="color:#9ca3af;font-size:13px;margin:0;">Alışverişiniz için teşekkürler! Tekrar görüşmek üzere 👋</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f9fafb;padding:24px 48px;text-align:center;border-top:1px solid #e5e7eb;">
+            <p style="color:#9ca3af;font-size:12px;margin:0;">© 2026 n12</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

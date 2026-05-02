@@ -1,0 +1,2 @@
+com.ecommerce.common.config.CommonAutoConfiguration
+com.ecommerce.common.config.OpenApiDocumentationConfiguration

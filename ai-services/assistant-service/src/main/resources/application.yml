@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: assistant-service
+  config:
+    import: optional:configserver:http://localhost:8888
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:dummy-key-for-dev}
+      chat:
+        options:
+          model: gpt-4o-mini
+          temperature: 0.7
+          max-tokens: 2000
+    # MCP Server konfigürasyonu
+    # spring-ai-starter-mcp-server-webmvc bağımlılığı ile otomatik etkinleşir.
+    # /mcp/sse → SSE (Server-Sent Events) transport endpoint
+    # /mcp/message → tool call ve sonuçları için HTTP endpoint
+    mcp:
+      server:
+        name: ecommerce-assistant
+        version: 1.0.0
+        type: SYNC            # SYNC: bloklamalı (basit) / ASYNC: reaktif
+        sse-message-endpoint: /mcp/message
+
+server:
+  port: 8092
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+
+services:
+  order:
+    url: ${ORDER_SERVICE_URL:http://localhost:8084}
+  recommendation:
+    url: ${RECOMMENDATION_SERVICE_URL:http://localhost:8090}

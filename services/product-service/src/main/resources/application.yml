@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: product-service
+  config:
+    import: optional:configserver:http://localhost:8888
+  datasource:
+    url: jdbc:postgresql://localhost:5432/product_db
+    username: ${DB_USERNAME:ecommerce}
+    password: ${DB_PASSWORD:ecommerce}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: 5672
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASS:guest}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+server:
+  port: 8082
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:your-cloud-name}
+  api-key: ${CLOUDINARY_API_KEY:your-api-key}
+  api-secret: ${CLOUDINARY_API_SECRET:your-api-secret}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

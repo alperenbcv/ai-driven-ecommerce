@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: recommendation-service
+  config:
+    import: optional:configserver:http://localhost:8888
+  neo4j:
+    uri: ${NEO4J_URI:bolt://localhost:7687}
+    authentication:
+      username: ${NEO4J_USER:neo4j}
+      password: ${NEO4J_PASSWORD:ecommerce}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: 5672
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASS:guest}
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:dummy-key-for-dev}
+
+server:
+  port: 8090
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true

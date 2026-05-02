@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 173 80% 31%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 24 95% 94%;
+    --accent-foreground: 24 95% 25%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 173 80% 31%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  ::selection {
+    @apply bg-teal-100 text-teal-950;
+  }
+}
+
+@layer components {
+  .page-shell {
+    @apply mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8;
+  }
+
+  .surface {
+    @apply border border-slate-200/80 bg-white/90 shadow-sm shadow-slate-200/70;
+  }
+
+  .soft-panel {
+    @apply border border-white/70 bg-white/75 shadow-xl shadow-slate-200/60 backdrop-blur;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.16em] text-teal-700;
+  }
+
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2;
+  }
+}

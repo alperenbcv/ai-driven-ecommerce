@@ -1,0 +1,37 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:5432/user_db
+    username: ${POSTGRES_USER:ecommerce}
+    password: ${POSTGRES_PASSWORD:ecommerce123}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: 5672
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASS:guest}
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: 6379
+
+jwt:
+  secret: ${JWT_SECRET:your-super-secret-jwt-key-minimum-32-characters}
+  expiration-ms: 86400000
+  refresh-expiration-ms: 604800000
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
