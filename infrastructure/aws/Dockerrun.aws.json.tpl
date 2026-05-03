@@ -1,9 +1,6 @@
 {
   "AWSEBDockerrunVersion": 2,
-
   "containerDefinitions": [
-
-    // ── Altyapı: RabbitMQ (AWS Managed MQ yerine Docker) ──────────
     {
       "name": "rabbitmq",
       "image": "rabbitmq:3.13-management-alpine",
@@ -18,8 +15,6 @@
         { "name": "RABBITMQ_DEFAULT_PASS", "value": "ecommerce123" }
       ]
     },
-
-    // ── Altyapı: Neo4j (recommendation-service için) ─────────────────────────
     {
       "name": "neo4j",
       "image": "neo4j:5.24-community",
@@ -30,15 +25,13 @@
         { "hostPort": 7687, "containerPort": 7687 }
       ],
       "environment": [
-        { "name": "NEO4J_AUTH", "value": "neo4j/ecommerce123" },
+        { "name": "NEO4J_AUTH",    "value": "neo4j/ecommerce123" },
         { "name": "NEO4J_PLUGINS", "value": "[\"apoc\"]" }
       ],
       "mountPoints": [
         { "sourceVolume": "neo4j-data", "containerPath": "/data" }
       ]
     },
-
-    // ── Spring Cloud altyapı servisleri ──────────────────────────────────────
     {
       "name": "config-server",
       "image": "${CONFIG_SERVER_IMAGE}",
@@ -63,8 +56,6 @@
       "portMappings": [{ "hostPort": 80, "containerPort": 8763 }],
       "links": ["config-server", "discovery-server"]
     },
-
-    // ── Uygulama servisleri ───────────────────────────────────────────────────
     {
       "name": "user-service",
       "image": "${USER_IMAGE}",
@@ -129,8 +120,6 @@
       "portMappings": [{ "hostPort": 8088, "containerPort": 8088 }],
       "links": ["config-server", "discovery-server", "rabbitmq"]
     },
-
-    // ── AI servisleri ─────────────────────────────────────────────────────────
     {
       "name": "search-service",
       "image": "${SEARCH_IMAGE}",
@@ -156,7 +145,6 @@
       "links": ["config-server", "discovery-server"]
     }
   ],
-
   "volumes": [
     {
       "name": "neo4j-data",
