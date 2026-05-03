@@ -18,8 +18,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "ignoreDeprecations": "5.0",
-    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"],
+    "ignoreDeprecations": "6.0",
+    "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
