@@ -1,0 +1,220 @@
+name: CD — Build, Push to ECR & Deploy to EB
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION:   eu-central-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com
+
+jobs:
+  build:
+    name: Build — Tüm Modüller
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: ./mvnw package -DskipTests --batch-mode -T 1C
+
+
+  push-images:
+    name: Jib → ECR (${{ matrix.service.name }})
+    runs-on: ubuntu-latest
+    needs: build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - { path: infrastructure/config-server,        name: config-server }
+          - { path: infrastructure/discovery-server,     name: discovery-server }
+          - { path: infrastructure/api-gateway,          name: api-gateway }
+          - { path: services/user-service,               name: user-service }
+          - { path: services/product-service,            name: product-service }
+          - { path: services/shopping-cart-service,      name: shopping-cart-service }
+          - { path: services/order-service,              name: order-service }
+          - { path: services/stock-service,              name: stock-service }
+          - { path: services/payment-service,            name: payment-service }
+          - { path: services/cargo-service,              name: cargo-service }
+          - { path: services/notification-service,       name: notification-service }
+          - { path: ai-services/search-service,          name: search-service }
+          - { path: ai-services/recommendation-service,  name: recommendation-service }
+          - { path: ai-services/assistant-service,       name: assistant-service }
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            eu-central-1
+
+      - name: ECR Login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: ECR repository oluştur (yoksa)
+        run: |
+          aws ecr describe-repositories \
+            --repository-names ${{ matrix.service.name }} 2>/dev/null \
+          || aws ecr create-repository \
+               --repository-name ${{ matrix.service.name }} \
+               --image-scanning-configuration scanOnPush=true
+
+      - name: common modülünü yükle
+        run: ./mvnw -pl common install -DskipTests --batch-mode -q
+
+      - name: Jib ile image oluştur → ECR push
+        run: |
+          ./mvnw -pl ${{ matrix.service.path }} jib:build \
+            --batch-mode -DskipTests \
+            -Dimage=$ECR_REGISTRY/${{ matrix.service.name }}:${{ github.sha }} \
+            -Djib.to.tags="${{ github.sha }},latest" \
+            -Djib.to.auth.username=AWS \
+            "-Djib.to.auth.password=$(aws ecr get-login-password --region eu-central-1)"
+
+
+  deploy:
+    name: Deploy → Elastic Beanstalk
+    runs-on: ubuntu-latest
+    needs: push-images
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            eu-central-1
+
+      - name: Dockerrun.aws.json oluştur
+        run: |
+          export CONFIG_SERVER_IMAGE=$ECR_REGISTRY/config-server:${{ github.sha }}
+          export DISCOVERY_IMAGE=$ECR_REGISTRY/discovery-server:${{ github.sha }}
+          export GATEWAY_IMAGE=$ECR_REGISTRY/api-gateway:${{ github.sha }}
+          export USER_IMAGE=$ECR_REGISTRY/user-service:${{ github.sha }}
+          export PRODUCT_IMAGE=$ECR_REGISTRY/product-service:${{ github.sha }}
+          export CART_IMAGE=$ECR_REGISTRY/shopping-cart-service:${{ github.sha }}
+          export ORDER_IMAGE=$ECR_REGISTRY/order-service:${{ github.sha }}
+          export STOCK_IMAGE=$ECR_REGISTRY/stock-service:${{ github.sha }}
+          export PAYMENT_IMAGE=$ECR_REGISTRY/payment-service:${{ github.sha }}
+          export CARGO_IMAGE=$ECR_REGISTRY/cargo-service:${{ github.sha }}
+          export NOTIFICATION_IMAGE=$ECR_REGISTRY/notification-service:${{ github.sha }}
+          export SEARCH_IMAGE=$ECR_REGISTRY/search-service:${{ github.sha }}
+          export RECOMMENDATION_IMAGE=$ECR_REGISTRY/recommendation-service:${{ github.sha }}
+          export ASSISTANT_IMAGE=$ECR_REGISTRY/assistant-service:${{ github.sha }}
+
+          envsubst < infrastructure/aws/Dockerrun.aws.json.tpl > Dockerrun.aws.json
+          echo "✓ Dockerrun.aws.json oluşturuldu"
+
+      - name: Deploy bundle oluştur ve S3'e yükle
+        id: bundle
+        run: |
+          VERSION_LABEL="v-${{ github.sha }}"
+          BUNDLE="ecommerce-${VERSION_LABEL}.zip"
+          zip $BUNDLE Dockerrun.aws.json infrastructure/aws/.ebextensions/ -r
+          aws s3 cp $BUNDLE s3://${{ secrets.EB_S3_BUCKET }}/$BUNDLE
+          echo "VERSION_LABEL=$VERSION_LABEL" >> $GITHUB_ENV
+          echo "BUNDLE=$BUNDLE" >> $GITHUB_ENV
+
+      - name: EB Application Version oluştur
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name "${{ secrets.EB_APPLICATION_NAME }}" \
+            --version-label    "$VERSION_LABEL" \
+            --source-bundle    S3Bucket="${{ secrets.EB_S3_BUCKET }}",S3Key="$BUNDLE" \
+            --description      "Commit ${{ github.sha }}"
+
+      - name: EB Environment'ı güncelle
+        run: |
+          aws elasticbeanstalk update-environment \
+            --application-name "${{ secrets.EB_APPLICATION_NAME }}" \
+            --environment-name "${{ secrets.EB_ENVIRONMENT_NAME }}" \
+            --version-label    "$VERSION_LABEL"
+
+      - name: Deploy tamamlanana kadar bekle (max 10 dk)
+        timeout-minutes: 10
+        run: |
+          aws elasticbeanstalk wait environment-updated \
+            --application-name  "${{ secrets.EB_APPLICATION_NAME }}" \
+            --environment-names "${{ secrets.EB_ENVIRONMENT_NAME }}"
+
+
+  notify:
+    name: Slack Bildirimi
+    runs-on: ubuntu-latest
+    needs: [push-images, deploy]
+    if: always()
+
+    steps:
+      - name: Durum belirle
+        id: status
+        run: |
+          BUILD="${{ needs.push-images.result }}"
+          DEPLOY="${{ needs.deploy.result }}"
+          if [[ "$BUILD" == "success" && "$DEPLOY" == "success" ]]; then
+            echo "OK"       >> $GITHUB_OUTPUT
+            echo "color=#36a64f"  >> $GITHUB_OUTPUT
+            echo "text=Deploy başarıyla tamamlandı." >> $GITHUB_OUTPUT
+          else
+            echo "ERROR"       >> $GITHUB_OUTPUT
+            echo "color=#e01e5a"  >> $GITHUB_OUTPUT
+            echo "text=Deploy başarısız! ECR: $BUILD | EB: $DEPLOY" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Slack'e gönder
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "attachments": [{
+                "color": "${{ steps.status.outputs.color }}",
+                "blocks": [
+                  {
+                    "type": "section",
+                    "text": {
+                      "type": "mrkdwn",
+                      "text": "${{ steps.status.outputs.emoji }} *ECommerceApp — Deploy*\n${{ steps.status.outputs.text }}"
+                    }
+                  },
+                  {
+                    "type": "section",
+                    "fields": [
+                      { "type": "mrkdwn", "text": "*Branch:*\n`${{ github.ref_name }}`" },
+                      { "type": "mrkdwn", "text": "*Commit:*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|`${{ github.sha }}`>" },
+                      { "type": "mrkdwn", "text": "*Mesaj:*\n${{ github.event.head_commit.message }}" },
+                      { "type": "mrkdwn", "text": "*Tetikleyen:*\n${{ github.actor }}" }
+                    ]
+                  },
+                  {
+                    "type": "actions",
+                    "elements": [{
+                      "type": "button",
+                      "text": { "type": "plain_text", "text": "Actions Run" },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    }]
+                  }
+                ]
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL:  ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

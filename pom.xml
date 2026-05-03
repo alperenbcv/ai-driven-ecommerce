@@ -37,6 +37,8 @@
 
     <properties>
         <java.version>21</java.version>
+        <!-- Jib: yerel geliştirme için varsayılan image adı; CI/CD -Dimage= ile ezer -->
+        <jib.image>ecommerce/${project.artifactId}:dev</jib.image>
         <spring-cloud.version>2024.0.1</spring-cloud.version>
         <spring-ai.version>1.0.0</spring-ai.version>
         <jjwt.version>0.12.6</jjwt.version>
@@ -132,15 +134,31 @@
                     <version>3.4.4</version>
                     <configuration>
                         <from>
+                            <!--
+                                Temel image: JRE-only Alpine → küçük katman.
+                                Güvenlik açıklarını kapatmak için sürümü pin'le.
+                            -->
                             <image>eclipse-temurin:21-jre-alpine</image>
                         </from>
                         <to>
-                            <image>ecommerce/${project.artifactId}:latest</image>
+                            <!--
+                                Varsayılan: yerel Docker daemon'a "ecommerce/<artifactId>:dev".
+                                CI/CD'de üzerine yazılır:
+                                  ./mvnw jib:build -Dimage=<ECR_URI>/<service>:<sha>
+                            -->
+                            <image>${jib.image}</image>
                         </to>
                         <container>
                             <jvmFlags>
-                                <jvmFlag>-Xms256m</jvmFlag>
-                                <jvmFlag>-Xmx512m</jvmFlag>
+                                <!--
+                                    t3.medium (4 GB) üzerinde 14 servis çalışır.
+                                    Her servis ~256 MB heap → toplam ~3.5 GB.
+                                    Sıkışırsa t3.large ile min/max artırılabilir.
+                                -->
+                                <jvmFlag>-Xms128m</jvmFlag>
+                                <jvmFlag>-Xmx256m</jvmFlag>
+                                <jvmFlag>-XX:+UseContainerSupport</jvmFlag>
+                                <jvmFlag>-XX:MaxRAMPercentage=75.0</jvmFlag>
                             </jvmFlags>
                         </container>
                     </configuration>
