@@ -164,56 +164,42 @@ jobs:
     if: always()
 
     steps:
-      - name: Durum belirle
-        id: status
+      - name: Durum belirle ve Slack'e gönder
         run: |
           BUILD="${{ needs.push-images.result }}"
           DEPLOY="${{ needs.deploy.result }}"
+
           if [[ "$BUILD" == "success" && "$DEPLOY" == "success" ]]; then
-            echo "OK"       >> $GITHUB_OUTPUT
-            echo "color=#36a64f"  >> $GITHUB_OUTPUT
-            echo "text=Deploy başarıyla tamamlandı." >> $GITHUB_OUTPUT
+            COLOR="#36a64f"
+            ICON=":white_check_mark:"
+            MSG="Deploy basariyla tamamlandi."
           else
-            echo "ERROR"       >> $GITHUB_OUTPUT
-            echo "color=#e01e5a"  >> $GITHUB_OUTPUT
-            echo "text=Deploy başarısız! ECR: $BUILD | EB: $DEPLOY" >> $GITHUB_OUTPUT
+            COLOR="#e01e5a"
+            ICON=":x:"
+            MSG="Deploy basarisiz! ECR: $BUILD | EB: $DEPLOY"
           fi
 
-      - name: Slack'e gönder
-        uses: slackapi/slack-github-action@v1
-        with:
-          payload: |
-            {
-              "attachments": [{
-                "color": "${{ steps.status.outputs.color }}",
-                "blocks": [
+          curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H "Content-type: application/json" \
+            -d "{
+              \"attachments\": [{
+                \"color\": \"$COLOR\",
+                \"blocks\": [
                   {
-                    "type": "section",
-                    "text": {
-                      "type": "mrkdwn",
-                      "text": "${{ steps.status.outputs.emoji }} *ECommerceApp — Deploy*\n${{ steps.status.outputs.text }}"
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"$ICON *ECommerceApp Deploy*\n$MSG\"
                     }
                   },
                   {
-                    "type": "section",
-                    "fields": [
-                      { "type": "mrkdwn", "text": "*Branch:*\n`${{ github.ref_name }}`" },
-                      { "type": "mrkdwn", "text": "*Commit:*\n<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|`${{ github.sha }}`>" },
-                      { "type": "mrkdwn", "text": "*Mesaj:*\n${{ github.event.head_commit.message }}" },
-                      { "type": "mrkdwn", "text": "*Tetikleyen:*\n${{ github.actor }}" }
+                    \"type\": \"section\",
+                    \"fields\": [
+                      { \"type\": \"mrkdwn\", \"text\": \"*Branch:*\n\`${{ github.ref_name }}\`\" },
+                      { \"type\": \"mrkdwn\", \"text\": \"*Commit:*\n\`${{ github.sha }}\`\" },
+                      { \"type\": \"mrkdwn\", \"text\": \"*Tetikleyen:*\n${{ github.actor }}\" }
                     ]
-                  },
-                  {
-                    "type": "actions",
-                    "elements": [{
-                      "type": "button",
-                      "text": { "type": "plain_text", "text": "Actions Run" },
-                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                    }]
                   }
                 ]
               }]
-            }
-        env:
-          SLACK_WEBHOOK_URL:  ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+            }"
