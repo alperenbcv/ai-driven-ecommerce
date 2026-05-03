@@ -38,9 +38,14 @@ client.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    const refreshToken = useAuthStore.getState().refreshToken
+    const { token, refreshToken } = useAuthStore.getState()
 
-    // Refresh token yoksa direkt logout
+    // Oturum açık değilse (token yok) yönlendirme yapma — public sayfalar 401 alabilir
+    if (!token && !refreshToken) {
+      return Promise.reject(error)
+    }
+
+    // Refresh token yoksa (access token vardı ama expire oldu) logout
     if (!refreshToken) {
       performLogout()
       window.location.href = '/login'

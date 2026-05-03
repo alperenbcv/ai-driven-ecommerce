@@ -57,8 +57,10 @@ public class ProductSpecification {
     }
 
     public static Specification<Product> inCategory(Long categoryId) {
-        return (root, query, cb) ->
-            cb.equal(root.get("category").get("id"), categoryId);
+        return (root, query, cb) -> cb.or(
+            cb.equal(root.get("category").get("id"), categoryId),
+            cb.equal(root.get("category").get("parent").get("id"), categoryId)
+        );
     }
 
     public static Specification<Product> fromBrand(Long brandId) {
