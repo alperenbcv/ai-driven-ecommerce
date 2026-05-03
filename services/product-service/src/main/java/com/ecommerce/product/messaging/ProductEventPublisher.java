@@ -11,9 +11,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Search-service ile ortak sözleşme: routing key + payload alanları burada tek kaynak.
- */
+
 @Component
 @RequiredArgsConstructor
 @Slf4j

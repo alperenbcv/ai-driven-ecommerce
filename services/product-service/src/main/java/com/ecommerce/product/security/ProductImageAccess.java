@@ -7,9 +7,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
-/**
- * Katalog ürün görselleri: yalnızca ADMIN veya ürünün {@code sellerId} alanına eşleşen SELLER.
- */
 @Component
 public class ProductImageAccess {
 

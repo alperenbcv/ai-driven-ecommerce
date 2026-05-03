@@ -16,6 +16,46 @@ import reactor.core.publisher.Mono;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 
+/**
+ *
+ * Bu filter, Spring Cloud Gateway üzerinden geçen protected endpoint isteklerinde
+ * Authorization header içindeki Bearer JWT token'ı doğrular.
+ *
+ * Neden gateway'de kullandım:
+ * Mikroservis mimarisinde her servisin JWT parse etmesi yerine merkezi bir noktada
+ * token doğrulaması yapmak daha pratiktir. Gateway token'ı doğrular, kullanıcıya ait
+ * temel bilgileri iç servislere header olarak aktarır.
+ *
+ * Temel akış:
+ * 1. İstekten Authorization header okunur.
+ * 2. Header yoksa veya "Bearer " ile başlamıyorsa 401 Unauthorized döndürülür.
+ * 3. Bearer prefix'i çıkarılarak gerçek JWT token alınır.
+ * 4. Token jwt.secret ile doğrulanır ve içindeki claim'ler parse edilir.
+ * 5. Token içinden userId, role ve email bilgileri alınır.
+ * 6. Bu bilgiler X-User-Id, X-User-Role ve X-User-Email header'ları olarak iç servislere eklenir.
+ * 7. İstek, güncellenmiş header'larla ilgili mikroservise yönlendirilir.
+ *
+ * AbstractGatewayFilterFactory:
+ * Spring Cloud Gateway'de custom filter yazmak için kullanılan temel sınıftır.
+ * Bu sınıf sayesinde filter application.yml içinde route bazında kullanılabilir.
+ *
+ *
+ * Config tarafını ekledim fakat şuan rol bazlı bir ayar vs. ekleyemedim bu nedenle şimdilik boş.
+ *
+ * parseClaims():
+ * JWT token'ı jwt.secret ile doğrular. İmza geçersizse, token bozuksa veya
+ * token süresi dolmuşsa exception fırlatır.
+ *
+ * unauthorized():
+ * Token geçersiz olduğunda response status 401 yapılır ve request zinciri
+ * devam ettirilmez. Böylece istek backend servislere ulaşmadan gateway'de kesilir.
+ *
+ * Header temizleme:
+ * İç servislere X-User-Id, X-User-Role ve X-User-Email header'ları eklenmeden önce
+ * aynı isimli eski header'lar silinir. Böylece client'ın sahte X-User-Role gibi
+ * header göndererek kendini ADMIN göstermesi engellenir.
+ */
+
 @Slf4j
 @Component
 public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Config> {
@@ -46,7 +86,6 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
                 String role = claims.get("role", String.class);
                 String email = claims.get("email", String.class);
 
-                // Downstream: yalnızca doğrulanmış JWT claim'leri (önceden strip edilen spoof header'ların üzerine)
                 ServerWebExchange mutatedExchange = exchange.mutate()
                         .request(req -> req.headers(headers -> {
                             headers.remove("X-User-Id");
@@ -82,6 +121,5 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
     }
 
     public static class Config {
-        // Gerektiğinde route-level konfigürasyon eklenebilir
     }
 }

@@ -15,8 +15,6 @@ public interface ProductService {
     void deleteProduct(Long id);
     ProductResponse getProductById(Long id);
     PageResponse<ProductResponse> listProducts(ProductFilterRequest filter);
-
-    /** Aktif ürünlerin özet kartları; istek sırasına göre (en fazla 80 id). */
     List<ProductBriefResponse> batchActiveSummaries(List<Long> ids);
     ProductResponse uploadImage(Long productId, MultipartFile file, int displayOrder);
     ProductResponse uploadImageFromUrl(Long productId, String imageUrl, int displayOrder);

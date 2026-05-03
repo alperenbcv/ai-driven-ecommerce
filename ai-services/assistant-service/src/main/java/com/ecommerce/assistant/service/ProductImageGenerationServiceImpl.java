@@ -11,6 +11,33 @@ import org.springframework.stereotype.Service;
 
 import java.util.Map;
 
+/**
+ * Ürün görseli üretmek için kullanılan AI servis implementasyonudur.
+ *
+ * ImageModel:
+ * Spring AI'ın görsel üretim modelleri için sağladığı ortak abstraction'dır.
+ * Böylece doğrudan OpenAI API çağrısı yazmak yerine Spring AI üzerinden model çağrısı yapılır.
+ *
+ * generateProductImage akışı:
+ * 1. Controller'dan gelen body içinden productName, description ve categoryName okunur.
+ * 2. productName boşsa görsel üretilemeyeceği için BusinessException fırlatılır.
+ * 3. Ürün adına, kategoriye ve kısa açıklamaya göre DALL-E için prompt hazırlanır.
+ * 4. ImagePrompt ile modele gönderilecek prompt ve model ayarları birleştirilir.
+ * 5. OpenAiImageOptions ile kullanılacak model, görsel boyutu, adet ve response format belirlenir.
+ * 6. Model URL formatında bir görsel sonucu döndürür.
+ * 7. Bu URL frontend'e imageUrl olarak geri verilir.
+ *
+ * OpenAiImageOptions içinde:
+ * - model("dall-e-2") → kullanılacak image generation modeli.
+ * - N(1)              → tek görsel üretileceğini belirtir.
+ * - width/height      → 512x512 kare ürün görseli üretir.
+ * - responseFormat("url") → görsel binary olarak değil, erişilebilir URL olarak döner.
+ *
+ * 
+ * dall-e-2 kalite olarak çok kötü bir tercih olmasına rağmen, fiyat açısından çok uygun olduğu için kullanıldı.
+ * 
+ */
+
 @Service
 @RequiredArgsConstructor
 @Slf4j

@@ -14,6 +14,47 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Product Service çağrıları için manuel HTTP client yaklaşımı kullandım.
+ *
+ * Bu sınıf Order Service'in sipariş oluşturma aşamasında Product Service'ten
+ * ürün ve listing bilgilerini doğrulamak için kullandığı küçük bir client sınıfıdır.
+ *
+ * Burada Feign yerine RestTemplate kullanılmasının sebebi tamamen tercihendir,
+ * Feign kullanılması tutarlılık açısından daha doğru olurdu.
+ *
+ * Temel amaç:
+ * - Siparişe eklenen productId gerçekten var mı kontrol etmek.
+ * - Ürünün aktif olup olmadığını öğrenmek.
+ * - Kullanıcının seçtiği listingId gerçekten o ürüne ait mi kontrol etmek.
+ * - Listing fiyatı, sellerId ve aktiflik bilgisini Order Service tarafına taşımak.
+ *
+ * getProduct:
+ * Product Service'teki /api/products/{id} endpoint'ine istek atar.
+ * Dönen ApiResponse içindeki data alanından ürünün id, name, price ve active
+ * bilgilerini çıkarır ve ProductSnapshot nesnesine dönüştürür.
+ *
+ * getListing:
+ * Product Service'teki /api/products/{id}/listings endpoint'ine istek atar.
+ * Ürüne ait tüm seller listing'lerini getirir, verilen listingId ile eşleşeni bulur
+ * ve ProductListingSnapshot olarak döndürür. Eğer listing bulunamazsa NotFoundException
+ * fırlatılır.
+ *
+ * dataMap, asString, asLong, asBigDecimal:
+ * RestTemplate ile Map olarak alınan generic response'u güvenli şekilde okumak için
+ * kullanılan yardımcı metotlardır. Çünkü burada typed Feign DTO yerine manuel Map parsing
+ * yapıldığı için gelen Object değerlerinin Long, String ve BigDecimal tiplerine çevrilmesi gerekir.
+ *
+ * ProductSnapshot:
+ * Order Service'in ürün doğrulaması için ihtiyaç duyduğu minimum ürün bilgisini taşır.
+ * Tüm ProductResponse'u almak yerine sadece sipariş için gerekli alanlar tutulur.
+ *
+ * ProductListingSnapshot:
+ * Siparişte kullanılacak satıcı listing bilgisinin küçük bir özetidir.
+ * Order item oluştururken listingId, sellerId, productName, price ve active bilgileri
+ * bu nesne üzerinden kullanılır.
+ */
+
 @Component
 public class ProductCatalogClient {
 

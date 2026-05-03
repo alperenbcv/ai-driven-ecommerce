@@ -21,18 +21,67 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Assistant servisi için güvenlik yapılandırması.
- * <p>
- * JWT doğrulaması API Gateway üzerindedir; bu serviste token parse edilmez.
- * Gateway istemciden gelen isteği doğruladıktan sonra kimlik bilgisini başlıklarla iletir;
- * buradaki {@link #gatewayRoleFilter()} bu başlıklardan ({@code X-User-Id}, {@code X-User-Role})
- * {@link SecurityContextHolder} içinde bir {@link org.springframework.security.core.Authentication}
- * oluşturur böylece denetleyici veya servisteki {@link org.springframework.security.access.prepost.PreAuthorize}
- * ifadeleri çalışır.
- * <p>
- * HTTP katmanında tüm istekler {@code anyRequest().permitAll()} ile serbest bırakılır; erişim kısıtları
- * gerekiyorsa method security ({@code @PreAuthorize} vb.) ile verilir. Oturum kullanılmaz
- * ({@link SessionCreationPolicy#STATELESS}), CSRF kapalıdır (durumsuz API).
+ * Assistant Service güvenlik konfigürasyonu.
+ *
+ * Bu servis JWT token'ı doğrudan kendisi çözmez. Çünkü JWT doğrulama işlemi Gateway tarafında yapılır.
+ *
+ * Gateway başarılı doğrulama yaptıktan sonra isteğe bazı header bilgileri ekler:
+ *
+ *   X-User-Id   → Giriş yapan kullanıcının ID bilgisi
+ *   X-User-Role → Kullanıcının rolü: USER, SELLER veya ADMIN
+ *
+ * Bu sınıfın amacı:
+ * Gateway'den gelen bu header bilgilerini okuyup Spring SecurityContext içine koymaktır.
+ *
+ * Neden bunu yapıyoruz?
+ * Çünkü bazı endpoint veya method'larda ileride şu tarz kontroller yazmak isteyebiliriz:
+ *
+ *   @PreAuthorize("hasRole('ADMIN')")
+ *   @PreAuthorize("hasAnyRole('USER', 'SELLER')")
+ *
+ * Bu annotation'ların çalışabilmesi için Spring Security'nin mevcut kullanıcının
+ * rolünü bilmesi gerekir. Biz de bu bilgiyi header'lardan alıp SecurityContext'e ekliyoruz.
+ *
+ * Akış:
+ *
+ * 1. İstek Assistant Service'e gelir.
+ *
+ * 2. gatewayRoleFilter her istekte bir kez çalışır.
+ *    Bunun için OncePerRequestFilter kullanılır.
+ *
+ * 3. Filter, request header içinden X-User-Id ve X-User-Role değerlerini okur.
+ *
+ * 4. Eğer iki header da varsa:
+ *    - Kullanıcı authenticated kabul edilir.
+ *    - Role bilgisi "ROLE_" prefix'i ile authority'ye çevrilir.
+ *      Örnek:
+ *        X-User-Role: ADMIN
+ *        Spring authority: ROLE_ADMIN
+ *
+ * 5. UsernamePasswordAuthenticationToken oluşturulur.
+ *    Burada username olarak userId kullanılır.
+ *    Password/credential kullanılmaz çünkü kullanıcı zaten gateway'de doğrulanmıştır.
+ *
+ * 6. Oluşturulan authentication nesnesi SecurityContextHolder'a eklenir.
+ *    Böylece Spring Security, bu request boyunca kullanıcının kimliğini ve rolünü bilir.
+ *
+ * 7. Eğer header bilgileri yoksa SecurityContext temizlenir.
+ *    Bu durumda istek anonim kabul edilir.
+ *
+ * 8. filterChain.doFilter(...) çağrılır ve istek normal akışına devam eder.
+ *
+ * SecurityFilterChain tarafında:
+ *
+ *   CSRF kapatılır.
+ *   Çünkü bu servis stateless REST API olarak çalışır.
+ *
+ *   Session kullanılmaz.
+ *   Her request bağımsızdır, kullanıcı bilgisi session'da tutulmaz.
+ *
+ *   Tüm HTTP isteklerine permitAll verilir.
+ *   Çünkü temel JWT kontrolü gateway'de yapılır.
+ *   Bu servisteki rol bazlı kontroller ise ihtiyaç olursa @PreAuthorize ile yapılır.
+ *
  */
 @Configuration
 @EnableMethodSecurity

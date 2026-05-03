@@ -10,15 +10,12 @@ import org.springframework.stereotype.Component;
  * Mock kargo durum simülatörü.
  *
  * @Scheduled → Spring'in zamanlayıcı anotasyonu.
- * @EnableScheduling ile aktif edilir (main class veya config).
+ * @EnableScheduling ile aktif edilir.
  *
- * fixedDelay = 120000 → her 2 dakikada bir çalışır.
- * Demo için makul: kargo oluşturulunca ~8 dakika içinde "teslim" durumuna geçer.
- * (CREATED → PICKED_UP → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED = 4 adım × 2 dk)
- *
- * Production'da bu scheduler çalışmaz — gerçek kargo firmasının webhook'ları gelir:
- *   POST /api/cargo/webhook  body: { trackingNumber: "...", status: "DELIVERED" }
- * Biz bu webhook'u işleyip durumu güncellerdik.
+ * fixedDelay = 120000 → her 2 dakikada bir çalışır. Demo için kargo status simülasyonu yapar.
+ * 
+ * Şuan demo dışında webhook elemesi vs. yok yani production ortamında kargo status'un güncellenmesi
+ * için ekleme yapılması gerekiyor.
  *
  * initialDelay = 30000 → Uygulama başlayınca 30 saniye bekle, sonra başla.
  * DB bağlantısı ve RabbitMQ hazır olsun diye.

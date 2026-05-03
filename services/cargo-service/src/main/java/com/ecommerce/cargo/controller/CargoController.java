@@ -9,14 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Kargo takip endpoint'leri.
- *
- * Takip numarasıyla sorgulama herkesin yapabileceği bir işlem.
- * JWT gerekmez — bu endpoint API Gateway'de public.
- *
- * Sipariş numarasıyla sorgulama iç kullanım (Order Service veya auth'd kullanıcı).
- */
 @RestController
 @RequestMapping("/api/cargo")
 @RequiredArgsConstructor

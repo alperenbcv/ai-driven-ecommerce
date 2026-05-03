@@ -20,40 +20,115 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * E-ticaret Tool'ları — LLM'in gerçek backend'e bağlanmasını sağlar.
+ * E-commerce AI Assistant tarafından kullanılacak tool'ları barındıran sınıftır.
  *
- * ═══════════════════════════════════════════════════════════════════
- * @Tool anotasyonu nedir?
- * ═══════════════════════════════════════════════════════════════════
- * Spring AI 1.0'ın Function Calling entegrasyonu.
+ * Bu sınıf doğrudan controller tarafından çağrılmaz.
+ * AssistantServiceImpl içinde ChatClient'a .tools(ecommerceTools) şeklinde verilerek
+ * Spring AI'a "model bu sınıftaki uygun method'ları araç olarak çağırabilir" denmiş olur.
  *
- * LLM (GPT-4o-mini) bir istekte "tool çağrısı" kararı verebilir.
- * Örneğin kullanıcı "Sony kulaklık var mı?" derse:
+ * Genel akış:
  *
- *   1. LLM isteği alır
- *   2. "searchProducts tool'unu çağırayım" kararı verir
- *   3. Spring AI `searchProducts("Sony kulaklık")` methodunu çağırır
- *   4. Sonuç LLM'e geri gönderilir
- *   5. LLM sonucu kullanarak doğal dil cevabı üretir
+ * 1. Kullanıcı chat ekranından bir mesaj yazar.
  *
- * Bu, RAG (Retrieval Augmented Generation) benzeri bir yaklaşım:
- * LLM kendi bilgisiyle değil, gerçek veritabanı verisiyle cevap verir.
+ * 2. Mesaj AssistantServiceImpl üzerinden LLM'e gönderilir.
  *
- * ═══════════════════════════════════════════════════════════════════
- * description neden önemli?
- * ═══════════════════════════════════════════════════════════════════
- * LLM hangi tool'u ne zaman çağıracağına description'a bakarak karar verir.
- * "Ürün aramak için kullan" vs "Sipariş durumu için kullan" gibi açık
- * tanımlar, LLM'in doğru tool'u seçmesini sağlar.
- * Kötü description → yanlış tool → hatalı cevap.
+ * 3. Model, SYSTEM_PROMPT ve burada tanımlı @Tool açıklamalarına bakarak
+ *    hangi tool'u çağırması gerektiğine karar verir.
  *
- * ═══════════════════════════════════════════════════════════════════
- * MCP Server entegrasyonu
- * ═══════════════════════════════════════════════════════════════════
- * spring-ai-starter-mcp-server-webmvc bağımlılığı ile bu tool'lar
- * otomatik olarak /mcp/sse endpoint'i üzerinden dışarıya açılır.
- * Cursor veya başka bir MCP client bu endpoint'e bağlanarak
- * aynı tool'ları kullanabilir.
+ * 4. Seçilen tool çalışır ve gerçek backend servislerinden veri çeker.
+ *
+ * 5. Tool'un döndürdüğü String sonuç tekrar modele context olarak verilir.
+ *    Model de bu gerçek veriye dayanarak kullanıcıya doğal dilli cevap üretir.
+ *
+ *
+ * @Tool anotasyonu nedir:
+ * 
+ * Bir Java method'unu LLM tarafından çağrılabilir hale getirir.
+ *
+ *
+ *
+ * @Tool(description = )
+ * Model hangi tool'u ne zaman çağıracağına bu açıklamalara bakarak karar verir.
+ *
+ *
+ * @ToolParam anotasyonu nedir:
+ * Tool method'una gelen parametrenin model tarafından anlaşılmasını sağlar.
+ *
+ * Örneğin:
+ *
+ *   public String searchProducts(
+ *       @ToolParam(description = "Aranacak kelime veya ürün adı") String query
+ *   )
+ *
+ * Burada model şunu öğrenir:
+ *
+ * - Bu tool bir query parametresi bekliyor.
+ * - query, kullanıcının aramak istediği ürün adı / marka / kategori bilgisidir.
+ *
+ * Yani @ToolParam, method parametreleri için doğal dilde açıklama sağlar.
+ * Bu açıklamalar modelin doğru parametre üretmesine yardımcı olur.
+ *
+ *
+ * ProductResultHolder nedir:
+ * 
+ * Tool'lar String döndürdüğü için model ürünleri metin olarak görebilir.
+ * Ancak frontend tarafında ürünleri kart olarak göstermek için structured data gerekir.
+ *
+ * Bu nedenle searchProducts ve getPersonalizedRecommendations gibi ürün döndüren tool'lar,
+ * bulunan ProductSummary listesini ayrıca ProductResultHolder'a ekler.
+ *
+ * Böylece:
+ *
+ * - Model metinsel cevabı üretir.
+ * - Frontend ise ChatResponse.products alanından ürün kartlarını render eder.
+ *
+ * Yani ProductResultHolder, AI cevabı ile frontend ürün kartları arasında köprü görevi görür.
+ *
+ *
+ * UserContextHolder nedir:
+ * 
+ * Bazı tool'lar kullanıcı bilgisine ihtiyaç duyar.
+ *
+ * Örneğin:
+ *
+ * - getPersonalizedRecommendations → hangi kullanıcıya öneri üretilecek?
+ * - getOrderStatus → sipariş gerçekten bu kullanıcıya mı ait?
+ *
+ * Tool method'ları doğrudan controller'dan çağrılmadığı için userId parametresi
+ * her tool'a tek tek gönderilmez.
+ *
+ * Bunun yerine AssistantServiceImpl, request başında userId'yi UserContextHolder'a koyar.
+ * Tool'lar da gerektiğinde buradan userId'yi okur.
+ *
+ * Request sonunda context temizlenir. Bu, farklı kullanıcıların verisinin birbirine
+ * karışmaması için önemlidir.
+ *
+ *
+ * Client sınıfları neden kullanılıyor?
+ * 
+ * Assistant Service kendi veritabanından ürün, sipariş veya öneri verisi okumaz.
+ * Mikroservis mimarisine uygun olarak ilgili servislere client'lar üzerinden gider:
+ *
+ * - ProductClient         → Product Service'ten ürün bilgisi alır.
+ * - OrderClient           → Order Service'ten sipariş bilgisi alır.
+ * - RecommendationClient  → Recommendation/Search servisinden öneri ürün ID'leri alır.
+ *
+ * Böylece Assistant Service yalnızca AI orchestration katmanı olur.
+ * Ürün, sipariş ve öneri domain logic'i ilgili servislerde kalır.
+ *
+ *
+ *
+ * Fallback mantığının açıklaması:
+ * 
+ * Özellikle kişisel öneri tarafında yeni kullanıcıların yeterli geçmişi olmayabilir.
+ *
+ * Bu yüzden öneri akışı kademeli çalışır:
+ *
+ * 1. Kullanıcı bazlı recommendation denenir.
+ * 2. Kullanıcının sipariş geçmişi varsa, satın aldığı ürünlere benzer ürünler denenir.
+ * 3. Bunlar da yoksa popüler ürünler döndürülür.
+ *
+ * Böylece kullanıcıya tamamen boş cevap vermek yerine anlamlı bir alternatif sunulur.
  */
 @Slf4j
 @Component
@@ -68,15 +143,6 @@ public class EcommerceTools {
 
     private static final int PRODUCT_BATCH_CHUNK = 80;
 
-    /**
-     * Ürün arama — kullanıcının belirttiği kelime ile.
-     *
-     * LLM ne zaman çağırır?
-     * - "X ürünü varmı?"
-     * - "Samsung telefon önerir misin?"
-     * - "En ucuz laptop ne kadar?"
-     * - "Bu kategoride ne var?"
-     */
     @Tool(description = """
             E-ticaret platformunda ürün ara. Kullanıcı ürün sorarken,
             belirli bir marka veya kategori araştırırken kullan.
@@ -100,10 +166,8 @@ public class EcommerceTools {
                 return "Arama sonucu bulunamadı: " + keyword;
             }
 
-            // Bulunan ürünleri holder'a kaydet — AssistantServiceImpl okuyacak
             productResultHolder.add(products);
 
-            // LLM'e sadece okunabilir özet dön
             return products.stream()
                     .map(p -> "%s — %.2f TRY (Puan: %.1f/5)".formatted(
                             p.getName(),
@@ -117,13 +181,6 @@ public class EcommerceTools {
         }
     }
 
-    /**
-     * Belirli bir ürünün detaylarını getir.
-     *
-     * LLM ne zaman çağırır?
-     * - "Bu ürün hakkında daha fazla bilgi ver" (productId varsa)
-     * - searchProducts sonrası detay istendiğinde
-     */
     @Tool(description = """
             Belirli bir ürünün detaylı bilgilerini getir.
             Önce searchProducts ile ürün ID'sini bul, sonra bu tool'u kullan.
@@ -232,18 +289,6 @@ public class EcommerceTools {
         }
     }
 
-    /**
-     * Sipariş durumu sorgulama.
-     *
-     * LLM ne zaman çağırır?
-     * - "ORD-20260501-00001 siparişim nerede?"
-     * - "Siparişimin durumu ne?"
-     * - "Ne zaman teslim edilecek?"
-     *
-     * userId parametresi: Authorization için zorunlu.
-     * LLM bunu context'ten (userId claim) alır, kullanıcı giremez.
-     * Bu sayede kullanıcı başkasının siparişini sorgulayamaz.
-     */
     @Tool(description = """
             Sipariş numarasına göre sipariş durumunu sorgula.
             Kullanıcı "siparişim nerede" veya belirli bir sipariş numarası sorarsa kullan.
@@ -294,13 +339,6 @@ public class EcommerceTools {
             return "Sipariş bilgisi alınamadı. Sipariş numarasını kontrol edin: " + orderNumber;
         }
     }
-
-    /**
-     * Platform hakkında genel sorular.
-     *
-     * Feign çağrısı gerektirmeyen, statik bilgi döndüren tool.
-     * LLM bu tür static tool'ları da çağırabilir — tutarlı cevaplar için faydalı.
-     */
     @Tool(description = """
             Platform politikaları, iade, kargo süresi, ödeme yöntemleri gibi
             genel sorulara cevap ver. Mağazaya, siparişe veya ürüne özel olmayan
@@ -344,9 +382,6 @@ public class EcommerceTools {
         };
     }
 
-    /**
-     * Öneri sırasını koruyarak PostgreSQL ile uyumlu batch üzerinden yükle ({@code /api/products/batch}).
-     */
     private List<ProductSummary> fetchProductsOrdered(List<Long> orderedIds, int limit) {
         if (orderedIds == null || orderedIds.isEmpty()) {
             return List.of();

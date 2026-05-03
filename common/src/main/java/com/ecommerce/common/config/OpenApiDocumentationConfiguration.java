@@ -14,10 +14,53 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
-
 /**
- * Tüm springdoc kullanan mikroservislerde ortak OpenAPI başlığı ve JWT security scheme.
- * Classpath'te springdoc yoksa (ör. bildirim servisi) etkinleşmez.
+ * Common modül üzerinden tüm servisler için ortak Swagger / OpenAPI ayarı sağlar.
+ *
+ * Bu proje microservice yapısında olduğu için her servisin kendi Swagger dokümantasyonu
+ * vardır. Ancak hepsinde aynı güvenlik şeması, benzer başlık formatı ve ortak açıklama
+ * kullanmak istediğimiz için OpenAPI konfigürasyonunu common modüle aldım.
+ *
+ * @AutoConfiguration:
+ * Bu sınıfı Spring Boot auto-configuration mekanizmasına dahil eder.
+ * Böylece common modülü dependency olarak kullanan servislerde bu OpenAPI ayarı
+ * otomatik olarak aktif olabilir.
+ *
+ * @ConditionalOnClass(name = "io.swagger.v3.oas.models.OpenAPI"):
+ * Bu konfigürasyon sadece Swagger/OpenAPI dependency'si classpath'te varsa çalışır.
+ * Yani bir servis springdoc-openapi kullanmıyorsa bu bean oluşturulmaya çalışılmaz.
+ * Bu da common modülün farklı servislerde esnek kullanılmasını sağlar.
+ *
+ * @Bean:
+ * ecommerceOpenApi metodu bir OpenAPI bean'i üretir.
+ * Springdoc bu bean'i okuyarak Swagger UI üzerinde servis başlığı, açıklaması,
+ * server bilgisi ve security ayarlarını gösterir.
+ *
+ * @ConditionalOnMissingBean(OpenAPI.class):
+ * Eğer ilgili servis kendi özel OpenAPI bean'ini tanımlamışsa, common modüldeki
+ * varsayılan bean devreye girmez. Böylece servis bazlı override imkanı korunur.
+ *
+ * @Value("${spring.application.name:application}"):
+ * Servisin application.yml içindeki adını okur.
+ * Örneğin product-service için başlık otomatik olarak
+ * "E-Commerce — Product service" gibi oluşturulur.
+ * Eğer değer yoksa varsayılan olarak "application" kullanılır.
+ *
+ * @Value("${server.port:8080}"):
+ * Servisin port bilgisini okur ve Swagger'daki server URL'ine ekler.
+ * Bu sayede Swagger UI üzerinden doğrudan ilgili servisin lokal portuna istek atılabilir.
+ *
+ * OpenAPI içeriğinde:
+ * - info(): API başlığı, açıklama, versiyon, iletişim ve lisans bilgisini tanımlar.
+ * - servers(): Swagger UI'da kullanılacak servis adresini gösterir.
+ * - addSecurityItem(): Endpoint'lerin Bearer JWT ile korunabileceğini belirtir.
+ * - components().addSecuritySchemes(): Swagger UI'daki Authorize butonunda
+ *   JWT token girilebilmesi için bearer authentication şemasını tanımlar.
+ *
+ * Neden kullandım?
+ * Her serviste aynı Swagger ayarlarını tekrar tekrar yazmak yerine common modüle
+ * aldım. Böylece bütün microservice'lerde tutarlı API dokümantasyonu, ortak JWT
+ * güvenlik tanımı ve merkezi bakım sağlanmış oldu.
  */
 @AutoConfiguration
 @ConditionalOnClass(name = "io.swagger.v3.oas.models.OpenAPI")

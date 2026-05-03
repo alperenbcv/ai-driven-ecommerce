@@ -28,6 +28,45 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ *
+ * Bu sınıf sipariş oluşturma, sipariş görüntüleme, iptal etme ve Saga eventleri
+ * sonrasında sipariş durumunu güncelleme işlemlerinden sorumludur.
+ *
+ * Genel akış:
+ * 1. Kullanıcı checkout yaptığında createOrder çağrılır.
+ * 2. Sepetten gelen ürünler doğrudan güvenilerek kaydedilmez.
+ *    ProductCatalogClient üzerinden ürün tekrar doğrulanır ve gerçek fiyat backend'den alınır.
+ *    Böylece frontend'de fiyat manipülasyonu yapılsa bile sipariş güvenli şekilde hesaplanır.
+ * 3. Sipariş PENDING durumunda oluşturulur.
+ * 4. Her ürün için Stock Service'e stok rezervasyon eventi gönderilir.
+ * 5. Stok, ödeme ve kargo servislerinden gelen eventlere göre sipariş durumu adım adım güncellenir.
+ *
+ * Bu sınıf Saga orchestration mantığının merkezindedir:
+ * - Stok başarılıysa ödeme başlatılır.
+ * - Stok başarısızsa sipariş iptal edilir.
+ * - Ödeme başarılıysa stok kesinleştirilir ve kargo oluşturulur.
+ * - Ödeme başarısızsa stok rezervasyonu geri bırakılır.
+ * - Kargo oluşturulunca takip numarası siparişe yazılır.
+ * - Teslim edilince sipariş DELIVERED yapılır ve öneri servisi için event yayınlanır.
+ *
+ * ProductCatalogClient:
+ * Sipariş oluşturulurken ürünün aktifliği, listing'in geçerliliği, sellerId ve güncel fiyat bilgisi
+ * Product Service'ten doğrulanır. Sipariş tutarı frontend'den gelen fiyata göre değil,
+ * backend katalog verisine göre hesaplanır.
+ *
+ * AtomicLong orderCounter:
+ * Sipariş numarası üretirken aynı gün içinde artan bir sıra numarası kullanılır.
+ * Uygulama restart olduğunda sayaç sıfırdan başlamasın diye initOrderCounter içinde
+ * DB'deki en büyük sipariş sequence değeri okunur ve sayaç oradan devam ettirilir.
+ *
+ * ValidatedOrderItem 
+ * Siparişe eklenecek ürünlerin doğrulanmış halini temsil eder.
+ * Entity oluşturmadan önce productId, listingId, sellerId, ürün adı, gerçek birim fiyat,
+ * adet ve toplam fiyat tek yerde taşınır.
+ */
+
+
 @Service
 @RequiredArgsConstructor
 @Slf4j

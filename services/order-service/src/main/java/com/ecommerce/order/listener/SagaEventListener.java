@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
+/**
+ *
+ * Servisler arası tutarlılık Saga mantığıyla eventler üzerinden sağlanır.
+ *
+ * @RabbitListener:
+ * Belirtilen queue'yu dinler. Queue'ya yeni bir mesaj geldiğinde ilgili metot
+ * otomatik olarak çalışır. Mesaj payload'u burada Map<String, Object> olarak alınır.
+ *
+ * Neden Map kullanıldı?
+ * Eventler farklı servislerden geldiği için küçük ve esnek payload'lar taşınıyor.
+ * Bu proje bootcamp seviyesinde olduğu için her event tipi için ayrı DTO oluşturmak
+ * yerine ortak Map yapısı tercih edildi. Zorunlu alanlar helper metotlarla kontrol edilir.
+ *
+ * requiredString ve requiredLong:
+ * Event içinde mutlaka bulunması gereken alanları okur. Alan eksikse veya geçersizse
+ * 
+ * stringOrDefault:
+ * Reason, provider gibi opsiyonel alanlarda varsayılan değer kullanmak için yazılmıştır.
+ */
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j

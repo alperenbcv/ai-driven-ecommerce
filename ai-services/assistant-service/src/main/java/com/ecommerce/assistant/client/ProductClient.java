@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * Product Service'e Feign Client.
  *
- * İstek adresi: `name` ile Eureka / LoadBalancer'dan çözülür (ayrı `url` yok).
+ * order client'ında olduğu gibi name eşleşmesi eureka tarafında yapılır.
  */
 @FeignClient(name = "product-service", path = "/api/products")
 public interface ProductClient {

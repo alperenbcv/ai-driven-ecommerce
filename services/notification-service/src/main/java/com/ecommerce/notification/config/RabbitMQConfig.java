@@ -10,10 +10,10 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Notification Service RabbitMQ konfigürasyonu.
  *
- * Notification Service sadece DİNLER, event YAYINLAMAz.
+ * Notification Service sadece dinler.
  * Diğer servislerden gelen eventlere göre e-posta gönderir.
  *
- * DİNLENEN EVENTLER:
+ * Dinlenen eventler:
  *   order.exchange → order.created   → "Siparişiniz alındı" maili
  *   order.exchange → order.shipped   → "Kargolandı" maili + tracking no
  *   order.exchange → order.delivered.notification → "Teslim edildi" maili

@@ -1,7 +1,6 @@
 version: '3.9'
 
 services:
-  # ─── PostgreSQL (with pgvector extension) ───────────────────────────────────
   postgres:
     image: pgvector/pgvector:pg16
     container_name: ecommerce-postgres
@@ -14,7 +13,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Yalnızca DB oluşturma + extension. seed.sql buraya bağlanmamalı (tablolar Hibernate ile sonradan oluşur).
       - ./infrastructure/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ecommerce}"]
@@ -22,7 +20,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── Redis ──────────────────────────────────────────────────────────────────
   redis:
     image: redis:7.4-alpine
     container_name: ecommerce-redis
@@ -37,7 +34,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── RabbitMQ ───────────────────────────────────────────────────────────────
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: ecommerce-rabbitmq
@@ -47,7 +43,7 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-ecommerce123}
     ports:
       - "5672:5672"
-      - "15672:15672"   # Management UI
+      - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -56,7 +52,6 @@ services:
       timeout: 10s
       retries: 5
 
-  # ─── Neo4j ──────────────────────────────────────────────────────────────────
   neo4j:
     image: neo4j:5.24-community
     container_name: ecommerce-neo4j
@@ -65,8 +60,8 @@ services:
       NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-ecommerce123}
       NEO4J_PLUGINS: '["apoc"]'
     ports:
-      - "7474:7474"   # Browser UI
-      - "7687:7687"   # Bolt
+      - "7474:7474"
+      - "7687:7687"
     volumes:
       - neo4j_data:/data
     healthcheck:
@@ -75,7 +70,6 @@ services:
       timeout: 10s
       retries: 5
 
-  # ─── Discovery Server (Eureka) ───────────────────────────────────────────────
   discovery-server:
     build:
       context: infrastructure/discovery-server
@@ -90,7 +84,6 @@ services:
       timeout: 10s
       retries: 5
 
-  # ─── Config Server ───────────────────────────────────────────────────────────
   config-server:
     build:
       context: infrastructure/config-server
@@ -108,7 +101,6 @@ services:
       timeout: 10s
       retries: 5
 
-  # ─── API Gateway ─────────────────────────────────────────────────────────────
   api-gateway:
     build:
       context: infrastructure/api-gateway
@@ -138,7 +130,6 @@ services:
       timeout: 10s
       retries: 5
 
-  # ─── User Service ─────────────────────────────────────────────────────────────
   user-service:
     build:
       context: services/user-service
@@ -169,7 +160,6 @@ services:
       redis:
         condition: service_healthy
 
-  # ─── Product Service ──────────────────────────────────────────────────────────
   product-service:
     build:
       context: services/product-service
@@ -199,7 +189,6 @@ services:
       config-server:
         condition: service_healthy
 
-  # ─── Shopping Cart Service ────────────────────────────────────────────────────
   shopping-cart-service:
     build:
       context: services/shopping-cart-service
@@ -220,7 +209,6 @@ services:
       config-server:
         condition: service_healthy
 
-  # ─── Order Service ────────────────────────────────────────────────────────────
   order-service:
     build:
       context: services/order-service
@@ -247,7 +235,6 @@ services:
       config-server:
         condition: service_healthy
 
-  # ─── Stock Service ────────────────────────────────────────────────────────────
   stock-service:
     build:
       context: services/stock-service
@@ -273,7 +260,6 @@ services:
       config-server:
         condition: service_healthy
 
-  # ─── Payment Service ──────────────────────────────────────────────────────────
   payment-service:
     build:
       context: services/payment-service
@@ -302,7 +288,6 @@ services:
       config-server:
         condition: service_healthy
 
-  # ─── Cargo Service ────────────────────────────────────────────────────────────
   cargo-service:
     build:
       context: services/cargo-service
@@ -328,7 +313,6 @@ services:
       config-server:
         condition: service_healthy
 
-  # ─── Notification Service ─────────────────────────────────────────────────────
   notification-service:
     build:
       context: services/notification-service
@@ -353,7 +337,6 @@ services:
       config-server:
         condition: service_healthy
 
-  # ─── Search Service ───────────────────────────────────────────────────────────
   search-service:
     build:
       context: ai-services/search-service
@@ -380,7 +363,6 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  # ─── Recommendation Service ───────────────────────────────────────────────────
   recommendation-service:
     build:
       context: ai-services/recommendation-service
@@ -412,7 +394,6 @@ services:
       config-server:
         condition: service_healthy
 
-  # ─── AI Assistant Service ─────────────────────────────────────────────────────
   assistant-service:
     build:
       context: ai-services/assistant-service

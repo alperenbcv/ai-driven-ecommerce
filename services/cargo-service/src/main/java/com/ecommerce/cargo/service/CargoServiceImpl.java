@@ -18,6 +18,48 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Cargo Service'in ana iş mantığı implementasyonudur.
+ *
+ * Bu servis, sipariş servisinden gelen kargo oluşturma event'ini işler,
+ * kargo takip kaydı oluşturur, takip numarası üretir ve kargo durumlarını
+ * simüle ederek ilerletir.
+ *
+ * Temel görevleri:
+ * 1. createShipment:
+ *    Order Service'ten gelen event içindeki sipariş ve alıcı bilgilerini alır.
+ *    Aynı sipariş için daha önce kargo oluşturulmuşsa tekrar kayıt açmaz.
+ *    Yeni bir trackingNumber üretir, Shipment kaydı oluşturur ve ilk
+ *    ShipmentEvent olarak CREATED durumunu ekler.
+ *
+ * 2. advanceShipmentStatuses:
+ *    Teslim edilmemiş veya başarısız olmamış aktif kargoları bulur.
+ *    Her çağrıda kargo durumunu bir sonraki adıma taşır.
+ *
+ * 3. track:
+ *    Takip numarasına göre kargo bilgisini döndürür.
+ *
+ * 4. trackByOrder:
+ *    Sipariş numarasına göre ilgili kargo bilgisini döndürür.
+ *
+ * RabbitMQ kullanımı:
+ * - Kargo oluşturulduğunda cargo.created eventi yayınlanır.
+ * - Kargo DELIVERED durumuna geldiğinde cargo.delivered eventi yayınlanır.
+ *   Böylece Order Service gibi diğer servisler kargo durumundan haberdar olabilir.
+ *
+ * @Transactional(readOnly = true):
+ * Sınıf seviyesinde varsayılan olarak sadece okuma transaction'ı kullanılır.
+ * Veri değiştiren createShipment ve advanceShipmentStatuses metotlarında ayrıca
+ * @Transactional kullanılarak yazma işlemleri aktif hale getirilir.
+ *
+ * Yardımcı metotlar:
+ * - getNextStatus bir sonraki kargo durumunu belirler.
+ * - getStatusDescription kullanıcıya gösterilecek açıklamayı üretir.
+ * - getStatusLocation durum bazlı mock lokasyon bilgisini üretir.
+ * - toResponse Shipment entity'sini frontend'e dönecek TrackingResponse DTO'suna çevirir.
+ *
+ */
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -28,14 +70,6 @@ public class CargoServiceImpl implements CargoService {
     private final RabbitTemplate rabbitTemplate;
     private final DbBackedTrackingNumberGenerator trackingNumberGenerator;
 
-    /**
-     * Order Service'ten "cargo.create" eventi gelince yeni kargo oluştur.
-     *
-     * Mock provider: "MockCargo" — gerçek entegrasyonda Yurtiçi/Aras/MNG API'sine istek gider.
-     * estimatedDelivery: 3 iş günü (mock)
-     *
-     * Kargo oluşturulunca "cargo.created" eventi yayınlanır → Order Service SHIPPED yapar.
-     */
     @Transactional
     @Override
     public void createShipment(Map<String, Object> event) {
@@ -73,16 +107,6 @@ public class CargoServiceImpl implements CargoService {
         publishCargoCreatedEvent(orderNumber, trackingNumber);
     }
 
-    /**
-     * Mock kargo durum simülasyonu — Scheduler tarafından çağrılır.
-     *
-     * Her çağrıda aktif kargoları bir sonraki duruma ilerletir.
-     * Gerçek kargo firması bu adımları saat/gün aralıklarla yapar.
-     * Demo için dakika bazlı çalışır (scheduler cron'u yml'de ayarlanır).
-     *
-     * Durum akışı:
-     *   CREATED → PICKED_UP → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED
-     */
     @Transactional
     @Override
     public void advanceShipmentStatuses() {
@@ -104,7 +128,6 @@ public class CargoServiceImpl implements CargoService {
 
             if (nextStatus == CargoStatus.DELIVERED) {
                 shipment.setDeliveredAt(LocalDateTime.now());
-                // Order Service'e bildir → SHIPPED → DELIVERED + notification + recommendation
                 publishCargoDeliveredEvent(shipment.getOrderNumber());
             }
 

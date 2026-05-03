@@ -16,20 +16,16 @@ import java.util.Map;
 /**
  * E-posta gönderim servisi.
  *
- * JavaMailSender → Spring'in e-posta soyutlaması.
- * yml'de SMTP ayarları yapılır (Gmail, SendGrid vb.).
- * Gerçek e-posta göndermek için SMTP credential gerekir.
+ * JavaMailSender → Spring'in e-posta sınıfı.
+ * yml'de SMTP ayarları yapılır (bu projede gmail kullandım).
  *
- * Geliştirme ortamı için iki seçenek:
- * 1. Mailhog (Docker'da local SMTP yakalayıcı) — gerçek mail gitmez, UI'da görünür
- *    docker run -p 8025:8025 -p 1025:1025 mailhog/mailhog
- * 2. Mailtrap — sandbox SMTP servisi (ücretsiz tier var)
- *
- * Thymeleaf → HTML e-posta şablonları için.
- * Şablon: src/main/resources/templates/email/order-created.html
+ * Thymeleaf'i e-posta şablonları için kullandım.
  *
  * sendSimple → Düz metin e-posta (hızlı)
  * sendHtml   → HTML e-posta (thymeleaf şablonlu)
+ * 
+ * setFrom kısmında noreply@ecommerce.com kullandım. Fakat smtp configlerinde
+ * kendi mail adresim olduğu için gönderen olarak kendi mail adresim set ediliyor.
  */
 @Service
 @RequiredArgsConstructor

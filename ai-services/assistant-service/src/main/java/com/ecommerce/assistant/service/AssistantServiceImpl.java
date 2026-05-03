@@ -25,12 +25,56 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * AI Asistan Servisi — Spring AI ChatClient + Tool Calling.
+ * AI Assistant servisinin implementasyonudur.
  *
- * Konuşma belleği Redis'e basit JSON string olarak kaydedilir.
- * Spring AI'ın mesaj nesneleri (UserMessage, AssistantMessage)
- * Jackson ile serialize edilemiyor (no-arg constructor yok),
- * bu yüzden [{"role":"user","content":"..."}, ...] formatı kullanıyoruz.
+ *
+ * 1. Tool Calling
+ *    .tools(ecommerceTools) ile EcommerceTools sınıfındaki method'lar modele tool olarak tanıtılır.
+ *    Bu sayede model konuyla alakalı tool'u çağırabilir.
+ *
+ * 2. Konuşma geçmişini Redis'te tutmak
+ *    Kullanıcının aynı session içinde önceki mesajlarını hatırlayabilmesi için konuşma geçmişi Redis'e kaydedilir.
+ *
+ * 3. Neden StringRedisTemplate kullandım:
+ *    Spring AI'ın UserMessage ve AssistantMessage nesneleri doğrudan Jackson ile
+ *    kolay serialize edilemediği için Redis'e bu nesneleri direkt yazmak yerine
+ *    basit bir JSON formatı tercih edildi:
+ *
+ *      [
+ *        { "role": "user", "content": "..." },
+ *        { "role": "assistant", "content": "..." }
+ *      ]
+ *
+ * 4. Konuşma geçmişini sınırlamak
+ *    MAX_HISTORY_SIZE ile sadece son belirli sayıdaki mesaj saklanır.
+ *    Bunun amacı:
+ *
+ *    - modele gereksiz uzun context göndermemek,
+ *    - token maliyetini azaltmak,
+ *    - cevap üretimini hızlandırmak,
+ *    - Redis'te gereksiz veri büyümesini engellemektir.
+ *
+ * 5. TTL ile session temizliği
+ *    SESSION_TTL = 30 dakika olarak belirlenmiştir.
+ *    Tüm chat'in sürekli olarak rediste tutulmasına gerek yoktur.
+ *
+ * 6. ProductResultHolder kullanımı
+ *    Tool çağrıları sırasında bulunan ürünler yalnızca metin cevabına gömülmez.
+ *    ProductResultHolder üzerinden ayrıca toplanır ve ChatResponse içinde frontend'e gönderilir.
+ *
+ *    Böylece frontend, AI cevabının altında ürün kartları gösterebilir.
+ *    Yani model cevabı metinsel, ürünler ise structured data olarak döner.
+ *
+ * 7. UserContextHolder kullanımı
+ *    Tool çağrıları sırasında mevcut userId'ye ihtiyaç duyulabilir.
+ *    Örneğin kişisel öneri veya sipariş sorgusu yapılırken hangi kullanıcı adına
+ *    işlem yapılacağını tool katmanının bilmesi gerekir.
+ *
+ *    userContextHolder.setUserId(userId) ile bu bilgi request boyunca tutulur,
+ *
+ * 8. Ürün açıklaması üretimi
+ *     generateProductDescription metodu, Admin/Seller tarafında ürün açıklaması üretmek için kullanılır.
+ *     Modelden sadece JSON formatında cevap istenir. Dönen cevap ilgili alanlara parse edilir.
  */
 @Service
 @Slf4j
@@ -67,7 +111,7 @@ public class AssistantServiceImpl implements AssistantService {
 
     private static final String SYSTEM_PROMPT = """
             Sen EShop platformunun yapay zeka destekli alışveriş asistanısın.
-            Gerçek veri tabanına erişen tool'larla çalışırsın — asla tahmin etme, her zaman tool çağır.
+            Gerçek veri tabanına erişen tool'larla çalışırsın, asla tahmin etme, her zaman tool çağır.
 
             ARAÇLARIN (tool'ların):
             • searchProducts       → Ürün adı/marka/kategori araması
@@ -96,23 +140,18 @@ public class AssistantServiceImpl implements AssistantService {
                 ? request.getSessionId()
                 : UUID.randomUUID().toString();
 
-        // Redis'ten önceki konuşmayı yükle (kullanıcıya göre ayrılmış anahtar)
         List<Message> history = loadHistory(sessionId, userId);
 
-        // Kullanıcı mesajını ekle
         history.add(new UserMessage(request.getMessage()));
 
-        // GPT'ye gönderilecek tam mesaj listesi (system + geçmiş)
         List<Message> messages = new ArrayList<>();
         messages.add(new SystemMessage(SYSTEM_PROMPT));
         messages.addAll(history);
 
         try {
-            // Her istek öncesi holder'ı temizle, kullanıcı kimliğini set et
             productResultHolder.clear();
             userContextHolder.setUserId(userId);
 
-            // LLM hangi tool'u çağıracağına kendisi karar verir — keyword bypass yok
             String reply = chatClient.prompt()
                     .messages(messages)
                     .tools(ecommerceTools)
@@ -208,20 +247,11 @@ public class AssistantServiceImpl implements AssistantService {
         stringRedisTemplate.delete(chatRedisKey(sessionId, userId));
     }
 
-    /**
-     * Oturum anahtarı kullanıcıya göre scope'lanır; giriş yoksa {@code anon} dilimi.
-     */
     private static String chatRedisKey(String sessionId, Long userId) {
         String owner = userId != null ? Long.toString(userId) : "anon";
         return SESSION_KEY_PREFIX + owner + ":" + sessionId;
     }
 
-    // ─── Redis: String JSON ↔ Spring AI Message ───────────────────────────────
-
-    /**
-     * Redis'ten [{"role":"user","content":"..."},...] formatında okur,
-     * Spring AI mesaj nesnelerine dönüştürür.
-     */
     private List<Message> loadHistory(String sessionId, Long userId) {
         try {
             String json = stringRedisTemplate.opsForValue().get(chatRedisKey(sessionId, userId));
@@ -247,10 +277,6 @@ public class AssistantServiceImpl implements AssistantService {
         }
     }
 
-    /**
-     * Spring AI mesaj listesini [{"role":"...","content":"..."},...] olarak
-     * JSON string'e çevirip Redis'e yazar.
-     */
     private void saveHistory(String sessionId, Long userId, List<Message> history) {
         try {
             List<Map<String, String>> records = history.stream()

@@ -9,6 +9,43 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.util.Map;
 
+/**
+ * Notification Service'in RabbitMQ event listener sınıfıdır.
+ *
+ * Bu sınıf doğrudan REST endpoint'i sunmaz; diğer mikroservislerden RabbitMQ
+ * üzerinden gelen olayları dinler ve ilgili e-posta bildirimlerini üretir.
+ *
+ * Dinlenen başlıca event türleri:
+ * - Sipariş oluşturuldu
+ * - Sipariş kargoya verildi
+ * - Sipariş teslim edildi
+ * - Sipariş iptal edildi
+ * - Ödeme başarısız oldu
+ * - Stok azaldı
+ * - Kullanıcı kayıt oldu
+ * - Şifre sıfırlama talebi oluşturuldu
+ *
+ * @RabbitListener:
+ * Her metodu belirli bir RabbitMQ queue'suna bağlar.
+ * Kuyruğa mesaj düştüğünde Spring ilgili metodu otomatik olarak çalıştırır.
+ *
+ * EmailService:
+ * Gerçek mail gönderme sorumluluğu bu sınıfta değil, EmailService içindedir.
+ * Bu listener sadece gelen event payload'unu okur, gerekli alanları hazırlar
+ * ve uygun mail template'i ile EmailService'e gönderir.
+ *
+ * Map<String, Object> event:
+ * RabbitMQ mesajları JSON olarak geldiği için burada esnek bir Map yapısı
+ * kullanılmıştır. Böylece farklı servislerden gelen payload alanları küçük
+ * farklılıklar gösterse bile listener kırılmadan çalışabilir. Şimdilik bu yapıyı kullanıyorum,
+ * fakat DTO oluşturmak daha mantıklı bir kullanım.
+ *
+ * firstNonBlank(), str(), formatAmount() gibi yardımcı metotlar:
+ * Event payload'larında alan isimleri bazen farklı gelebileceği için güvenli
+ * okuma ve fallback amacıyla kullanılır.
+ */
+
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -16,7 +53,6 @@ public class NotificationEventListener {
 
     private final EmailService emailService;
 
-    // ─── Sipariş eventleri ────────────────────────────────────────────────────
 
     @RabbitListener(queues = "notify.order.created.queue")
     public void onOrderCreated(Map<String, Object> event) {

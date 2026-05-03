@@ -22,7 +22,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import com.ecommerce.user.security.UserDetailsServiceImpl;
 
 /**
- * Spring Security konfigürasyonu.
  *
  * STATELESS session → JWT tabanlı auth'ta session tutulmaz.
  * Her istekte token kontrol edilir, sunucu tarafında session yok.
@@ -51,13 +50,13 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Public endpoint'ler — token gerektirmez
+                // Public endpoint'ler token gerektirmez
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
-                // Servislerarası satıcı özeti — token olmadan (ör. product-service UserServiceClient)
+                // Servislerarası satıcı özeti token olmadan
                 .requestMatchers(HttpMethod.GET, "/api/users/*/public").permitAll()
-                // Admin endpoint: yalnızca tam path GET /api/users (sayfa listesi)
+                // Admin endpoint: yalnızca tam path GET /api/users
                 .requestMatchers(HttpMethod.GET, "/api/users").hasRole("ADMIN")
                 // Diğer her şey JWT access token gerektirir
                 .anyRequest().authenticated()

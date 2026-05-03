@@ -1,25 +1,19 @@
--- ============================================================
--- n12 Demo Seed Data (İSTEĞE BAĞLI — MANUEL ÇALIŞTIRMA)
+-- Demo başlangıç verilerini yükleyen SQL dosyasıdır.
 --
--- UYARI: Bu dosyayı docker-entrypoint-initdb.d altına KOYMAYIN.
--- Tablolar Spring Boot / JPA ile servis ayağa kalkınca oluşur; init aşamasında
--- INSERT'ler "relation does not exist" ile düşer.
+-- Bu script farklı mikroservis veritabanlarına bağlanarak örnek kullanıcı,
+-- adres, kategori, marka, ürün ve stok kayıtları oluşturur.
 --
--- Docker Compose bu dosyayı otomatik çalıştırmaz; demo veri için bkz.:
---   user-service, product-service içindeki DataLoader / CommandLineRunner.
+-- Amaç:
+-- - Uygulama ilk açıldığında test edilebilir hazır veri sağlamak
+-- - Login, ürün listeleme, kategori/marka filtreleme, stok kontrolü gibi
+--   temel akışları manuel veri girmeden deneyebilmek
+-- - Bootcamp/demo ortamında frontend ve backend entegrasyonunu hızlıca göstermek
 --
--- Bu SQL yalnızca servisler bir kez başlayıp şemayı oluşturduktan sonra
--- elle psql ile yüklemek istenirse kullanılabilir.
--- ============================================================
+-- ON CONFLICT DO NOTHING kullanıldığı için aynı veri daha önce eklenmişse
+-- tekrar çalıştırıldığında duplicate kayıt oluşturmaz.
 
--- ─── USER_DB ────────────────────────────────────────────────
 \c user_db;
 
--- Önce tabloların oluşmasını beklemek yerine INSERT OR IGNORE kullanıyoruz.
--- Spring Boot başlayınca tablolar oluşur; seed data daha sonra yüklenebilir.
--- Bu yüzden seed data'yı ayrı bir Flyway migration veya CommandLineRunner ile de yükleyebilirsiniz.
-
--- Demo kullanıcılar (BCrypt hash: "Sifre123!")
 INSERT INTO users (first_name, last_name, email, password, role, active, created_at, updated_at)
 VALUES
   ('Ali',    'Yılmaz',  'ali@demo.com',     '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'USER',   true, NOW(), NOW()),
@@ -27,17 +21,14 @@ VALUES
   ('Admin',  'Kullanıcı','admin@demo.com',  '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.', 'ADMIN',  true, NOW(), NOW())
 ON CONFLICT (email) DO NOTHING;
 
--- Demo adresler
 INSERT INTO addresses (user_id, title, first_name, last_name, phone, city, district, full_address, default_address, created_at, updated_at)
 SELECT u.id, 'Ev', 'Ali', 'Yılmaz', '05321234567', 'İstanbul', 'Kadıköy',
        'Moda Mahallesi, Bahariye Caddesi No:42 D:5', true, NOW(), NOW()
 FROM users u WHERE u.email = 'ali@demo.com'
 ON CONFLICT DO NOTHING;
 
--- ─── PRODUCT_DB ─────────────────────────────────────────────
 \c product_db;
 
--- Kategoriler (hiyerarşik)
 INSERT INTO categories (name, parent_id, created_at, updated_at) VALUES
   ('Elektronik',        NULL, NOW(), NOW()),
   ('Giyim',             NULL, NOW(), NOW()),
@@ -62,7 +53,6 @@ INSERT INTO categories (name, parent_id, created_at, updated_at)
 SELECT 'Kadın Giyim', id, NOW(), NOW() FROM categories WHERE name = 'Giyim'
 ON CONFLICT DO NOTHING;
 
--- Markalar
 INSERT INTO brands (name, created_at, updated_at) VALUES
   ('Apple',     NOW(), NOW()),
   ('Samsung',   NOW(), NOW()),
@@ -76,7 +66,6 @@ INSERT INTO brands (name, created_at, updated_at) VALUES
   ('LG',        NOW(), NOW())
 ON CONFLICT DO NOTHING;
 
--- Ürünler (Admin tarafından oluşturulan katalog)
 INSERT INTO products (name, description, price, category_id, brand_id, average_rating, review_count, active, embedding_generated, created_at, updated_at)
 SELECT
   'MacBook Pro 14" M3',
@@ -177,17 +166,4 @@ FROM categories c, brands b
 WHERE c.name = 'Elektronik' AND b.name = 'Sony'
 ON CONFLICT DO NOTHING;
 
--- ─── STOCK_DB ───────────────────────────────────────────────
--- Not: Bu tablolar product_id ile eşleşmeli.
--- Spring Boot başladıktan sonra manuel stock eklemek için:
--- POST /api/stock {productId: X, initialQuantity: 100, lowStockThreshold: 10}
--- veya aşağıdaki SQL'i stock_db'ye çalıştırın:
 \c stock_db;
-
--- Stok verisini manuel olarak ekle (productId'ler product tablosundaki id'lerle eşleşmeli)
--- Bu seed çalıştırıldığında product_db henüz tam oluşmamış olabilir.
--- Gerçek demo için uygulama başladıktan sonra Stock REST API'si kullanın.
-
--- ─── NEO4J SEED ─────────────────────────────────────────────
--- Neo4j seed'i Cypher ile recommendation-service başladıktan sonra yapılabilir.
--- Örnek: MERGE (u:User {userId: 1}) MERGE (p:Product {productId: 1, name: 'MacBook Pro'}) ...

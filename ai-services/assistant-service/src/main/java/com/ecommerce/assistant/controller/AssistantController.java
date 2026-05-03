@@ -16,6 +16,27 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+
+/**
+ *
+ *
+ * Kullanılan bazı anotasyonların açıklaması ve neden kullanıldığı:
+ *
+ * @Tag
+ *   Swagger dokümantasyonu için kullanılır.
+ *   Bu controller'ın Swagger UI'da hangi başlık altında görüneceğini belirler.
+ *
+ * @Operation
+ *   Swagger dokümantasyonunda endpoint açıklaması göstermek için kullanılır.
+ *   Endpoint'in ne işe yaradığını kısa şekilde açıklar.
+ * 
+ * @PreAuthorize
+ *   Method-level security sağlar.
+ *   Endpoint çağrılmadan önce kullanıcının rolü kontrol edilir.
+ *   Bu annotation'ın çalışması için security config tarafında
+ *   @EnableMethodSecurity aktif olmalıdır.
+ */
+
 @RestController
 @RequestMapping("/api/assistant")
 @RequiredArgsConstructor

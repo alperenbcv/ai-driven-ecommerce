@@ -94,15 +94,6 @@ public class ProductProposalServiceImpl implements ProductProposalService {
         return toResponse(proposalRepository.save(proposal));
     }
 
-    /**
-     * Admin kararı.
-     *
-     * APPROVED → yeni Product oluşturulur ve seller'ın sahibi olarak atanır.
-     *            Proposal'da approvedProductId saklanır (referans için).
-     *
-     * REJECTED / REVISION_REQUESTED → sadece status ve adminNote güncellenir.
-     *   Seller kendi tekliflerini sorgulayarak durumu görebilir.
-     */
     @Override
     @Transactional
     public ProductProposalResponse reviewProposal(Long proposalId, ProposalReviewRequest request) {
@@ -122,13 +113,12 @@ public class ProductProposalServiceImpl implements ProductProposalService {
 
             Product approvedProduct;
             if (request.getExistingProductId() != null) {
-                // Mevcut katalog ürününe bağla — yeni Product oluşturulmaz
+                // Bu kısım önemli aynı ürün adıyla çokça ürün oluşmasın diye mevcut ürüne bağlama yapıyoruz.
                 approvedProduct = productRepository.findById(request.getExistingProductId())
                         .orElseThrow(() -> new NotFoundException("Bağlanmak istenen ürün bulunamadı: " + request.getExistingProductId()));
                 approvedProductId = approvedProduct.getId();
                 log.info("Teklif mevcut ürüne bağlandı: proposalId={}, productId={}", proposalId, approvedProductId);
             } else {
-                // Yeni katalog ürünü oluştur
                 String approvedDescription = request.getApprovedDescription() != null
                         && !request.getApprovedDescription().isBlank()
                         ? request.getApprovedDescription().trim()
