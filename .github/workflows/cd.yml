@@ -77,12 +77,11 @@ jobs:
                --repository-name ${{ matrix.service.name }} \
                --image-scanning-configuration scanOnPush=true
 
-      - name: common modülünü yükle
-        run: ./mvnw -pl common install -DskipTests --batch-mode -q
-
-      - name: Jib ile image oluştur → ECR push
+      - name: Derle + Jib ile image oluştur → ECR push (Dockerfile kullanılmaz)
         run: |
-          ./mvnw -pl ${{ matrix.service.path }} jib:build \
+          # -am: common dahil tüm bağımlı modülleri de derle
+          # package: target/classes doldurulur, Jib ardından push eder
+          ./mvnw -pl ${{ matrix.service.path }} -am package jib:build \
             --batch-mode -DskipTests \
             -Dimage=$ECR_REGISTRY/${{ matrix.service.name }}:${{ github.sha }} \
             -Djib.to.tags="${{ github.sha }},latest" \
