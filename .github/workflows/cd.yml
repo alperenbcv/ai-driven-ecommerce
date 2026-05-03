@@ -127,7 +127,7 @@ jobs:
       - name: Deploy bundle oluştur ve S3'e yükle
         id: bundle
         run: |
-          VERSION_LABEL="v-${{ github.sha }}"
+          VERSION_LABEL="v-${{ github.sha }}-$(date +%s)"
           BUNDLE="ecommerce-${VERSION_LABEL}.zip"
           zip $BUNDLE Dockerrun.aws.json infrastructure/aws/.ebextensions/ -r
           aws s3 cp $BUNDLE s3://${{ secrets.EB_S3_BUCKET }}/$BUNDLE
